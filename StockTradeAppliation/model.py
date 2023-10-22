@@ -129,7 +129,7 @@ class Stock_trade:
     @staticmethod
     def get_target_price(code="005930"):
         """변동성 돌파 전략으로 매수 목표가 조회"""
-        
+
         PATH = "uapi/domestic-stock/v1/quotations/inquire-daily-price"
         URL = f"{URL_BASE}/{PATH}"
         headers = {
