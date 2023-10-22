@@ -1,8 +1,8 @@
 import requests
-import datetime, time
+import time
 import yaml, json
 
-from message import Message
+from StockTradeAppliation.message import Message
 
 # 1. config.yaml 파일 읽기
 with open('config.yaml', encoding='UTF-8') as f:
@@ -13,65 +13,52 @@ APP_SECRET = _cfg['APP_SECRET']
 ACCESS_TOKEN = ""
 CANO = _cfg['CANO']
 ACNT_PRDT_CD = _cfg['ACNT_PRDT_CD']
-DISCORD_WEBHOOK_URL = _cfg['DISCORD_WEBHOOK_URL']
 URL_BASE = _cfg['URL_BASE']
 
 
 class Stock_trade:
     """
+        1. get_balance() - 현금 잔고조회
+        2. get_stock_balance() - 주식 잔고조회
         1. sell
         2. buy
-        3. get_balance() - 현금 잔고조회
-        4. get_stock_balance() - 주식 잔고조회
         5. get_target_price() - 변동성 돌파 전략으로 매수 목표가 조회
         6. get_current_price() - 현재가 조회
     """
+    
     @staticmethod
-    def get_current_price(code="005930"):
-        """현재가 조회"""
-        PATH = "uapi/domestic-stock/v1/quotations/inquire-price"
-        URL = f"{URL_BASE}/{PATH}"
-        headers = {"Content-Type": "application/json",
-                   "authorization": f"Bearer {ACCESS_TOKEN}",
-                   "appKey": APP_KEY,
-                   "appSecret": APP_SECRET,
-                   "tr_id": "FHKST01010100"}
-        params = {
-            "fid_cond_mrkt_div_code": "J",
-            "fid_input_iscd": code,
-        }
-        # 요청
-        res = requests.get(URL, headers=headers, params=params)
-        return int(res.json()['output']['stck_prpr'])
-
-    @staticmethod
-    def get_target_price(code="005930"):
-        """변동성 돌파 전략으로 매수 목표가 조회"""
-        PATH = "uapi/domestic-stock/v1/quotations/inquire-daily-price"
+    def get_balance() -> int:
+        """현금 잔고조회"""
+        
+        PATH = "uapi/domestic-stock/v1/trading/inquire-psbl-order"
         URL = f"{URL_BASE}/{PATH}"
         headers = {
             "Content-Type": "application/json",
             "authorization": f"Bearer {ACCESS_TOKEN}",
             "appKey": APP_KEY,
             "appSecret": APP_SECRET,
-            "tr_id": "FHKST01010400"}
+            "tr_id": "TTTC8908R",
+            "custtype": "P",
+        }
         params = {
-            "fid_cond_mrkt_div_code": "J",
-            "fid_input_iscd": code,
-            "fid_org_adj_prc": "1",
-            "fid_period_div_code": "D"
+            "CANO": CANO,
+            "ACNT_PRDT_CD": ACNT_PRDT_CD,
+            "PDNO": "005930",
+            "ORD_UNPR": "65500",
+            "ORD_DVSN": "01",
+            "CMA_EVLU_AMT_ICLD_YN": "Y",
+            "OVRS_ICLD_YN": "Y"
         }
 
         res = requests.get(URL, headers=headers, params=params)
-        stck_oprc = int(res.json()['output'][0]['stck_oprc'])  # 오늘 시가
-        stck_hgpr = int(res.json()['output'][1]['stck_hgpr'])  # 전일 고가
-        stck_lwpr = int(res.json()['output'][1]['stck_lwpr'])  # 전일 저가
-        target_price = stck_oprc + (stck_hgpr - stck_lwpr) * 0.5
-        return target_price
-
+        cash = res.json()['output']['ord_psbl_cash']
+        
+        return int(cash)
+    
     @staticmethod
     def get_stock_balance() -> dict:
         """주식 잔고조회"""
+        
         PATH = "uapi/domestic-stock/v1/trading/inquire-balance"
         URL = f"{URL_BASE}/{PATH}"
         headers = {
@@ -101,51 +88,73 @@ class Stock_trade:
         stock_list = res.json()['output1']
         evaluation = res.json()['output2']
         stock_dict = {}
-        Message.send_message(f"====주식 보유잔고====", DISCORD_WEBHOOK_URL)
+        Message.send_message(f"====주식 보유잔고====")
         for stock in stock_list:
             if int(stock['hldg_qty']) > 0:
                 stock_dict[stock['pdno']] = stock['hldg_qty']
-                Message.send_message(f"{stock['prdt_name']}({stock['pdno']}): {stock['hldg_qty']}주", DISCORD_WEBHOOK_URL)
+                Message.send_message(f"{stock['prdt_name']}({stock['pdno']}): {stock['hldg_qty']}주")
                 time.sleep(0.1)
 
-        Message.send_message(f"주식 평가 금액: {evaluation[0]['scts_evlu_amt']}원", DISCORD_WEBHOOK_URL)
+        Message.send_message(f"주식 평가 금액: {evaluation[0]['scts_evlu_amt']}원")
         time.sleep(0.1)
-        Message.send_message(f"평가 손익 합계: {evaluation[0]['evlu_pfls_smtl_amt']}원", DISCORD_WEBHOOK_URL)
+        Message.send_message(f"평가 손익 합계: {evaluation[0]['evlu_pfls_smtl_amt']}원")
         time.sleep(0.1)
-        Message.send_message(f"총 평가 금액: {evaluation[0]['tot_evlu_amt']}원", DISCORD_WEBHOOK_URL)
+        Message.send_message(f"총 평가 금액: {evaluation[0]['tot_evlu_amt']}원")
         time.sleep(0.1)
-        Message.send_message(f"=================",DISCORD_WEBHOOK_URL)
+        Message.send_message(f"=================")
 
         return stock_dict
+    
+    
+    @staticmethod
+    def get_current_price(code="005930"):
+        """특정 종목의 현재가 조회"""
+
+        PATH = "uapi/domestic-stock/v1/quotations/inquire-price"
+        URL = f"{URL_BASE}/{PATH}"
+        headers = {"Content-Type": "application/json",
+                   "authorization": f"Bearer {ACCESS_TOKEN}",
+                   "appKey": APP_KEY,
+                   "appSecret": APP_SECRET,
+                   "tr_id": "FHKST01010100"}
+        params = {
+            "fid_cond_mrkt_div_code": "J",
+            "fid_input_iscd": code,
+        }
+        
+        res = requests.get(URL, headers=headers, params=params)
+
+        return int(res.json()['output']['stck_prpr'])
 
     @staticmethod
-    def get_balance():
-        """현금 잔고조회"""
-        PATH = "uapi/domestic-stock/v1/trading/inquire-psbl-order"
+    def get_target_price(code="005930"):
+        """변동성 돌파 전략으로 매수 목표가 조회"""
+        
+        PATH = "uapi/domestic-stock/v1/quotations/inquire-daily-price"
         URL = f"{URL_BASE}/{PATH}"
         headers = {
             "Content-Type": "application/json",
             "authorization": f"Bearer {ACCESS_TOKEN}",
             "appKey": APP_KEY,
             "appSecret": APP_SECRET,
-            "tr_id": "TTTC8908R",
-            "custtype": "P",
-        }
+            "tr_id": "FHKST01010400"}
         params = {
-            "CANO": CANO,
-            "ACNT_PRDT_CD": ACNT_PRDT_CD,
-            "PDNO": "005930",
-            "ORD_UNPR": "65500",
-            "ORD_DVSN": "01",
-            "CMA_EVLU_AMT_ICLD_YN": "Y",
-            "OVRS_ICLD_YN": "Y"
+            "fid_cond_mrkt_div_code": "J",
+            "fid_input_iscd": code,
+            "fid_org_adj_prc": "1",
+            "fid_period_div_code": "D"
         }
+
         res = requests.get(URL, headers=headers, params=params)
-        print("********* 이거 뭔데 ...???")
-        print(res.json())
-        cash = res.json()['output']['ord_psbl_cash']
-        Message.send_message(f"주문 가능 현금 잔고: {cash}원",DISCORD_WEBHOOK_URL)
-        return int(cash)
+        stck_oprc = int(res.json()['output'][0]['stck_oprc'])  # 오늘 시가
+        stck_hgpr = int(res.json()['output'][1]['stck_hgpr'])  # 전일 고가
+        stck_lwpr = int(res.json()['output'][1]['stck_lwpr'])  # 전일 저가
+        target_price = stck_oprc + (stck_hgpr - stck_lwpr) * 0.5
+        return target_price
+
+    
+
+    
 
     @staticmethod
     def buy(code="005930", qty="1") -> bool:
@@ -167,18 +176,20 @@ class Stock_trade:
                    "tr_id": "TTTC0802U",
                    "custtype": "P",
                    "hashkey": Token.hashkey(data)
-                   }
+        }
+        # Request
         res = requests.post(URL, headers=headers, data=json.dumps(data))
         if res.json()['rt_cd'] == '0':
-            Message.send_message(f"[매수 성공]{str(res.json())}",DISCORD_WEBHOOK_URL)
+            Message.send_message(f"[매수 성공]{str(res.json())}")
             return True
         else:
-            Message.send_message(f"[매수 실패]{str(res.json())}",DISCORD_WEBHOOK_URL)
+            Message.send_message(f"[매수 실패]{str(res.json())}")
             return False
 
     @staticmethod
     def sell(code="005930", qty="1") -> bool:
         """주식 시장가 매도"""
+
         PATH = "uapi/domestic-stock/v1/trading/order-cash"
         URL = f"{URL_BASE}/{PATH}"
         data = {
@@ -201,12 +212,11 @@ class Stock_trade:
 
         res = requests.post(URL, headers=headers, data=json.dumps(data))
         if res.json()['rt_cd'] == '0':
-            Message.send_message(f"[매도 성공]{str(res.json())}",DISCORD_WEBHOOK_URL)
+            Message.send_message(f"[매도 성공]{str(res.json())}")
             return True
         else:
-            Message.send_message(f"[매도 실패]{str(res.json())}",DISCORD_WEBHOOK_URL)
+            Message.send_message(f"[매도 실패]{str(res.json())}")
             return False
-
 
 
 class Token:
@@ -223,6 +233,7 @@ class Token:
         PATH = "oauth2/tokenP"
         URL = f"{URL_BASE}/{PATH}"
 
+        # Request
         res = requests.post(URL, headers=headers, data=json.dumps(body))
         ACCESS_TOKEN = res.json()["access_token"]
 
@@ -238,7 +249,9 @@ class Token:
             'appKey': APP_KEY,
             'appSecret': APP_SECRET,
         }
-        # 요청
+
+        # Request
         res = requests.post(URL, headers=headers, data=json.dumps(datas))
         hashkey = res.json()["HASH"]
+
         return hashkey

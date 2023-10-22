@@ -2,8 +2,8 @@ import requests
 import datetime, time
 import yaml, json
 
-from message import Message
-from model import Stock_trade, Token
+from StockTradeAppliation.message import Message
+from StockTradeAppliation.model import Stock_trade, Token
 
 # 1. config.yaml 파일 읽기
 with open('config.yaml', encoding='UTF-8') as f:
@@ -14,7 +14,6 @@ APP_SECRET = _cfg['APP_SECRET']
 ACCESS_TOKEN = ""
 CANO = _cfg['CANO']
 ACNT_PRDT_CD = _cfg['ACNT_PRDT_CD']
-DISCORD_WEBHOOK_URL = _cfg['DISCORD_WEBHOOK_URL']
 URL_BASE = _cfg['URL_BASE']
 
 
@@ -27,9 +26,13 @@ try:
     # 매수 완료한 종목 리스트
     bought_list = []
 
-    # 보유 현금 조회 && 보유 주식 조회
+    # 현재 보유한 현금 - 조회하기
     total_cash = Stock_trade.get_balance()
+    Message.send_message(f"주문 가능 현금 잔고: {total_cash}원")
+    
+    # 현재 보유한 주식 - 조회하기
     stock_dict = Stock_trade.get_stock_balance()
+
     for sym in stock_dict.keys():
         bought_list.append(sym)
 
@@ -48,7 +51,7 @@ try:
         2. [일괄 매도] 
         3. [프로그램 종료] PM 03:20
     """
-    Message.send_message("=== [국내 주식 자동매매 프로그램을 시작합니다] ===",DISCORD_WEBHOOK_URL)
+    Message.send_message("===[Program init]====================")
     while True:
         time_now = datetime.datetime.now()
 
@@ -58,14 +61,13 @@ try:
         time_exit = time_now.replace(hour=15, minute=20, second=0,microsecond=0)
         today = datetime.datetime.today().weekday()
 
-        # 주말에는 자동 종료
+        # The program was shut down on the weekend.
         if today == 5 or today == 6:
-            Message.send_message("주말에는 프로그램을 종료합니다.",DISCORD_WEBHOOK_URL)
+            Message.send_message("===[Program Was Shut Down]====================")
             break
 
         # 0. [시작 전 사전 작업]
         # 잔여 수량 매도 - 남은 수량은 전부 판매
-        # 장이 시작할때; 매매한 것이 없도록 구현
         if time_9 < time_now < time_start and soldout == False:
             for sym, qty in stock_dict.items():
                 Stock_trade.sell(sym,qty)
@@ -85,7 +87,7 @@ try:
                         buy_qty = 0  # 매수할 수량 초기화
                         buy_qty = int(buy_amount // current_price)
                         if buy_qty > 0:
-                            Message.send_message(f"{sym} 목표가 달성({target_price} < {current_price}) 매수를 시도합니다.",DISCORD_WEBHOOK_URL)
+                            Message.send_message(f"{sym} 목표가 달성({target_price} < {current_price}) 매수를 시도합니다.")
                             result = Stock_trade.buy(sym, buy_qty)
                             if result:
                                 soldout = False
@@ -106,12 +108,11 @@ try:
                 soldout = True
                 bought_list = []
                 time.sleep(1)
-        # [프로그램 종료] PM 03:20 :
+        # [프로그램 종료] PM 03:20
         if time_exit < time_now:
-            Message.send_message("프로그램 종료",DISCORD_WEBHOOK_URL)
+            Message.send_message("===[Program Was Shut Down]====================")
             break
 
 except Exception as e:
-    Message.send_message(f"[오류] {e}",DISCORD_WEBHOOK_URL)
+    Message.send_message(f"[오류] {e}")
     time.sleep(1)
-
