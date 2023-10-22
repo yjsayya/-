@@ -1,6 +1,5 @@
-import requests
 import datetime, time
-import yaml, json
+import yaml
 
 from StockTradeAppliation.message import Message
 from StockTradeAppliation.model import Stock_trade, Token
