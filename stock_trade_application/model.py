@@ -2,10 +2,10 @@ import requests
 import time
 import yaml, json
 
-from StockTradeAppliation.message import Message
+from stock_trade_application.message import Message
 
 # 1. config.yaml 파일 읽기
-with open('config.yaml', encoding='UTF-8') as f:
+with open('../config.yaml', encoding='UTF-8') as f:
     _cfg = yaml.load(f, Loader=yaml.FullLoader)
 
 APP_KEY = _cfg['APP_KEY']
@@ -20,8 +20,8 @@ class Stock_trade:
     """
         1. get_balance() - 현금 잔고조회
         2. get_stock_balance() - 주식 잔고조회
-        1. sell
-        2. buy
+        3. sell - 종목 매수
+        4. buy - 종목 매도
         5. get_target_price() - 변동성 돌파 전략으로 매수 목표가 조회
         6. get_current_price() - 현재가 조회
     """
@@ -29,7 +29,7 @@ class Stock_trade:
     @staticmethod
     def get_balance() -> int:
         """현금 잔고조회"""
-        
+
         PATH = "uapi/domestic-stock/v1/trading/inquire-psbl-order"
         URL = f"{URL_BASE}/{PATH}"
         headers = {
@@ -49,10 +49,9 @@ class Stock_trade:
             "CMA_EVLU_AMT_ICLD_YN": "Y",
             "OVRS_ICLD_YN": "Y"
         }
-
         res = requests.get(URL, headers=headers, params=params)
         cash = res.json()['output']['ord_psbl_cash']
-        
+        Message.send_message(f"주문 가능 현금 잔고: {cash}원")
         return int(cash)
     
     @staticmethod
@@ -82,7 +81,6 @@ class Stock_trade:
             "CTX_AREA_FK100": "",
             "CTX_AREA_NK100": ""
         }
-
         res = requests.get(URL, headers=headers, params=params)
 
         stock_list = res.json()['output1']
@@ -152,9 +150,6 @@ class Stock_trade:
         target_price = stck_oprc + (stck_hgpr - stck_lwpr) * 0.5
         return target_price
 
-    
-
-    
 
     @staticmethod
     def buy(code="005930", qty="1") -> bool:

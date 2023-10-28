@@ -1,11 +1,10 @@
 import datetime, time
 import yaml
 
-from StockTradeAppliation.message import Message
-from StockTradeAppliation.model import Stock_trade, Token
+from stock_trade_application.message import Message
+from stock_trade_application.model import Stock_trade, Token
 
-# 1. config.yaml 파일 읽기
-with open('config.yaml', encoding='UTF-8') as f:
+with open('../config.yaml', encoding='UTF-8') as f:
     _cfg = yaml.load(f, Loader=yaml.FullLoader)
 
 APP_KEY = _cfg['APP_KEY']
@@ -27,8 +26,7 @@ try:
 
     # 현재 보유한 현금 - 조회하기
     total_cash = Stock_trade.get_balance()
-    Message.send_message(f"주문 가능 현금 잔고: {total_cash}원")
-    
+
     # 현재 보유한 주식 - 조회하기
     stock_dict = Stock_trade.get_stock_balance()
 
@@ -40,7 +38,6 @@ try:
     buy_amount = total_cash * buy_percent  # 종목별 주문 금액 계산
     soldout = False
 
-
     """
         자동 매매 시작 
         0. [프로그램 시작 전 - 사전 작업]
@@ -50,6 +47,7 @@ try:
         2. [일괄 매도] 
         3. [프로그램 종료] PM 03:20
     """
+
     Message.send_message("===[Program init]====================")
     while True:
         time_now = datetime.datetime.now()
@@ -63,6 +61,7 @@ try:
         # The program was shut down on the weekend.
         if today == 5 or today == 6:
             Message.send_message("===[Program Was Shut Down]====================")
+            print("Program Was Shut Down")
             break
 
         # 0. [시작 전 사전 작업]
@@ -73,7 +72,7 @@ try:
             soldout = True
             bought_list = []
             stock_dict = Stock_trade.get_stock_balance()
-
+        print("1")
         # 1. [매수 시작] AM 09:05 ~ PM 03:15
         if time_start < time_now < time_sell:
             for sym in symbol_list:
@@ -97,7 +96,7 @@ try:
             if time_now.minute == 30 and time_now.second <= 5:
                 Stock_trade.get_stock_balance()
                 time.sleep(5)
-
+        print("2")
         # 2. [일괄 매도] PM 03:15 ~ PM 03:20
         if time_sell < time_now < time_exit:
             if soldout == False:
@@ -111,7 +110,7 @@ try:
         if time_exit < time_now:
             Message.send_message("===[Program Was Shut Down]====================")
             break
-
+        print("3")
 except Exception as e:
     Message.send_message(f"[오류] {e}")
     time.sleep(1)
